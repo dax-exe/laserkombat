@@ -1,113 +1,37 @@
-name: Build
+name: Build web version
 
 on:
-  push:
+  workflow_dispatch:
 
 jobs:
-  Linux:
+  build-web:
     runs-on: ubuntu-latest
     steps:
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake libsdl2-dev libsdl2-ttf-dev
-      - name: Checkout
-        uses: actions/checkout@v7
-      - name: Build
-        run: |
-          mkdir laserkombat && cd laserkombat
-          cmake -DCMAKE_BUILD_TYPE=Release ..
-          make
-          strip --strip-unneeded laserkombat
-          cp ../COPYING ./
-      - name: Publish artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: laserkombat-linux
-          path: |
-            laserkombat/laserkombat
-            laserkombat/assets
-            laserkombat/COPYING
+      - name: Check out the repository
+        uses: actions/checkout@v4
 
-  Windows:
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: msys2 {0}
-    steps:
-      - name: Install dependencies
-        uses: msys2/setup-msys2@v2
+      - name: Install and activate Emscripten
+        uses: emscripten-core/setup-emsdk@v15
         with:
-          msystem: MINGW64
-          install: >-
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-binutils
-            mingw-w64-x86_64-make
-            mingw-w64-x86_64-cmake
-            mingw-w64-x86_64-pkgconf
-            mingw-w64-x86_64-SDL2
-            mingw-w64-x86_64-SDL2_ttf
-          update: true
-      - name: Checkout
-        uses: actions/checkout@v7
-      - name: Build
-        run: |
-          mkdir laserkombat && cd laserkombat
-          cmake -DCMAKE_BUILD_TYPE=Release -G "MinGW Makefiles" ..
-          cmake --build .
-          strip --strip-unneeded laserkombat.exe
-          cp ../COPYING ./
-          ../platform/windows/create-license-directory.sh mingw-w64-x86_64-SDL2 mingw-w64-x86_64-SDL2_ttf
-      - name: Publish artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: laserkombat-windows
-          path: |
-            laserkombat/laserkombat.exe
-            laserkombat/assets
-            laserkombat/COPYING
-            laserkombat/third-party-licenses
+          version: latest
 
-  PSP:
-    runs-on: ubuntu-latest
-    container: pspdev/pspdev:latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-      - name: Build
+      - name: Compile to WebAssembly
         run: |
-          mkdir laserkombat && cd laserkombat
-          psp-cmake -DCMAKE_BUILD_TYPE=Release ..
-          make
-          cp ../COPYING ./
-          psp-create-license-directory sdl2 sdl2-ttf
-      - name: Publish artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: laserkombat-psp
-          path: |
-            laserkombat/EBOOT.PBP
-            laserkombat/assets
-            laserkombat/COPYING
-            laserkombat/third-party-licenses
+          mkdir build-web
+          cd build-web
+          emcc ../src/*.cpp -o laserkombat.js \
+            -I../include \
+            -std=c++17 -fpermissive \
+            -s USE_SDL=2 -s USE_SDL_TTF=2 \
+            -s ALLOW_MEMORY_GROWTH=1 \
+            --preload-file ../assets@assets \
+            -O2
 
-  Release:
-    needs: [Linux, Windows, PSP]
-    if: startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        build: [linux, windows, psp]
-    steps:
-    - uses: actions/download-artifact@v8
-    - name: Zip artifacts
-      run: |
-        zip -r laserkombat-${{matrix.build}}.zip laserkombat-${{matrix.build}}
-    - name: Release
-      uses: softprops/action-gh-release@v3
-      with:
-        files: laserkombat-${{matrix.build}}.zip
-        tag_name: ${{ github.ref_name }}
-        name: Laser Kombat Revised version ${{ github.ref_name }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload the build as a downloadable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: laserkombat-web-build
+          path: |
+            build-web/laserkombat.js
+            build-web/laserkombat.wasm
+            build-web/laserkombat.data
