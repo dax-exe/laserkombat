@@ -22,6 +22,23 @@ jobs:
         # Asyncify's overhead (and the uncertainty around whether it was
         # correctly hooking into this specific game's loop, which two
         # rounds of tuning it didn't resolve) is no longer needed.
+        #
+        # DISABLE_DEPRECATED_FIND_EVENT_TARGET_BEHAVIOR=0: confirmed
+        # directly against SDL's own Emscripten backend source
+        # (SDL_emscriptenvideo.c) and multiple SDL/Emscripten GitHub
+        # issues - SDL2's Emscripten port hardcodes its canvas lookup to
+        # the literal element ID "canvas" by default, rather than
+        # actually respecting Module.canvas, which is what daxOS's own
+        # loader sets to a differently-named canvas. That's what was
+        # actually causing the silent stall reported here: SDL_CreateWindow
+        # never found a matching element and nothing after it ever ran
+        # (unrelated to Asyncify or the loop structure, which is why
+        # neither of the last two fixes changed anything). This flag
+        # restores the older, still-supported behavior where Module.canvas
+        # is genuinely respected regardless of its actual id, rather than
+        # requiring the canvas to be named exactly "canvas" (which would
+        # otherwise risk colliding with 3D Pinball's own canvas, which
+        # already has to use that literal id for this exact reason).
         run: |
           mkdir build-web
           cd build-web
@@ -30,6 +47,7 @@ jobs:
             -std=c++17 -fpermissive \
             -s USE_SDL=2 -s USE_SDL_TTF=2 \
             -s ALLOW_MEMORY_GROWTH=1 \
+            -s DISABLE_DEPRECATED_FIND_EVENT_TARGET_BEHAVIOR=0 \
             --preload-file ../assets@assets \
             -O2
 
