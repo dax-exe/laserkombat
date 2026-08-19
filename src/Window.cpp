@@ -58,7 +58,22 @@ std::vector<Input> Window::getInput() {
                 input.push_back(Input::CLOSE);
                 break;
             case SDL_KEYDOWN:
-                input.push_back(getInputForKeyboardKey(event.key.keysym.sym));
+                // repeat is SDL's own flag distinguishing an initial
+                // keypress (0) from the repeated keydown events an OS/
+                // browser generates for a held key (non-zero) - this is a
+                // grid-based puzzle game where every keypress should
+                // correspond to exactly one discrete action (turn OR move,
+                // advance exactly one level, etc.), so without this check
+                // even a brief hold could register as several inputs: a
+                // turn immediately followed by a move (making the tank
+                // look like it skips turning and just moves straight
+                // through, since it's already facing that way by the
+                // second, repeat-triggered input), or a level-select key
+                // advancing by an inconsistent number of levels depending
+                // on exactly how long the key was actually held.
+                if (!event.key.repeat) {
+                    input.push_back(getInputForKeyboardKey(event.key.keysym.sym));
+                }
                 break;
             case SDL_CONTROLLERBUTTONDOWN:
                 input.push_back(getInputForControllerButton(event.cbutton.button));
