@@ -16,6 +16,16 @@ jobs:
           version: latest
 
       - name: Compile to WebAssembly
+        # ASYNCIFY: Laser Kombat, like any native SDL2 game, runs a
+        # traditional blocking main loop (handle input, update, render,
+        # repeat) - fine as a normal desktop program with its own OS
+        # thread, but a browser tab only has one thread for everything,
+        # so code that never returns control freezes the whole page, not
+        # just the game (confirmed directly - this is what was happening
+        # without this flag). Asyncify transforms the compiled output so
+        # blocking calls can pause and hand control back to the browser
+        # between iterations, without needing to rewrite the game's own
+        # C++ source to use Emscripten's alternative main-loop API.
         run: |
           mkdir build-web
           cd build-web
@@ -24,6 +34,7 @@ jobs:
             -std=c++17 -fpermissive \
             -s USE_SDL=2 -s USE_SDL_TTF=2 \
             -s ALLOW_MEMORY_GROWTH=1 \
+            -s ASYNCIFY=1 \
             --preload-file ../assets@assets \
             -O2
 
