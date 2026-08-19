@@ -19,7 +19,7 @@ jobs:
         run: |
           mkdir build-web
           cd build-web
-          emcc ../src/*.cpp -o laserkombat.js \
+          em++ ../src/*.cpp -o laserkombat.js \
             -I../include \
             -std=c++17 -fpermissive \
             -s USE_SDL=2 -s USE_SDL_TTF=2 \
