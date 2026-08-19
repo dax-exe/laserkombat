@@ -26,6 +26,17 @@ jobs:
         # blocking calls can pause and hand control back to the browser
         # between iterations, without needing to rewrite the game's own
         # C++ source to use Emscripten's alternative main-loop API.
+        #
+        # ASYNCIFY_STACK_SIZE: Asyncify's default stack size is quite
+        # small, and real C++ programs with any meaningful call depth
+        # (game logic -> rendering -> SDL internals) commonly exceed it -
+        # when that happens, the unwind/rewind Asyncify needs to actually
+        # resume execution can fail silently in some configurations,
+        # rather than throwing a clear error. Confirmed directly: with
+        # the default size, the game reached the point of calling
+        # main() and then produced no further output or rendering at
+        # all, no crash, no freeze - consistent with exactly this.
+        # Bumped well above the default as a generous margin.
         run: |
           mkdir build-web
           cd build-web
@@ -35,6 +46,7 @@ jobs:
             -s USE_SDL=2 -s USE_SDL_TTF=2 \
             -s ALLOW_MEMORY_GROWTH=1 \
             -s ASYNCIFY=1 \
+            -s ASYNCIFY_STACK_SIZE=131072 \
             --preload-file ../assets@assets \
             -O2
 
