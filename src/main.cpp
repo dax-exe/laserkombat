@@ -19,6 +19,26 @@ bool running = false;
 void handleInput(std::vector<Input> input) {
     for (Input i: input) {
         int any_ret;
+#ifdef __EMSCRIPTEN__
+        // On the web, closing/quitting only ever happens via daxOS's own
+        // window chrome - Input::CLOSE (an SDL_QUIT event) and
+        // Input::EXIT (Escape/F12, the original game's own "quit to
+        // desktop" keys) are both deliberately ignored here rather than
+        // being allowed to reach the running=false logic below, which is
+        // what was actually causing Escape to look like a freeze: the
+        // game was correctly, deliberately stopping its own render loop
+        // exactly as it would when quitting a real desktop build, just
+        // in a context where "quit" doesn't make sense. Board::AnyKey()
+        // also returns 666 for Input::EXIT specifically (see Board.cpp)
+        // as well as for restarting a finished level, which is why this
+        // checks the actual input value directly up front rather than
+        // only the 666 return further down - a legitimate restart still
+        // works normally, only the two quit-triggering inputs are
+        // skipped entirely.
+        if (i == Input::CLOSE || i == Input::EXIT) {
+            continue;
+        }
+#endif
         if (i == Input::CLOSE || (any_ret=board->AnyKey(i))==666) {
             running = false;
         } else if (any_ret) {
